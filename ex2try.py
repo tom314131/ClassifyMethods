@@ -87,8 +87,7 @@ def shuffle_set(samples, labels):
     return zip(*shuffled_set)
 
 
-def build_svm(new_set, eta, epochs, gradient):
-    w = np.zeros((3, 10))
+def build_svm(new_set, eta, epochs, gradient,w):
     for e in range(epochs):
         new_set.x, new_set.y = shuffle_set(new_set.x, new_set.y)
         for x, y in zip(new_set.x, new_set.y):
@@ -99,115 +98,176 @@ def build_svm(new_set, eta, epochs, gradient):
                 w[y_hat] = scalar * w[y_hat] - x * eta
                 # w[y_hat] = np.subtract(w[y_hat], np.dot(x, eta))
                 last_value = 3 - y - y_hat
-                w[last_value] =
+                w[last_value] = scalar * w[last_value]
 
+    return w
 
+def predict_svm(h, samples,eta,gradient):
+    labels = load_labels("new_test_y.txt")
+    sample_x, samples_y = shuffle_set(samples, labels)
+    count = 0
+    error = 0
+    for x, y in zip(sample_x, samples_y):
+        y_hat = np.argmax(np.dot(h, x))
+        if count < 493:
+            if y_hat != y:
+                scalar = (1 - eta * gradient)
+                h[y] = scalar * h[y] + x * eta
+                h[y_hat] = scalar * h[y_hat] - x * eta
+                # w[y_hat] = np.subtract(w[y_hat], np.dot(x, eta))
+                last_value = 3 - y - y_hat
+                h[last_value] = scalar * h[last_value]
+        if count>=493:
+            d = np.argmax(np.dot(h, x))
+            if (d != samples_y[count]):
+                error = error + 1
+        count = count + 1
+    return (error/164)
 
-        return w
+def build_perceptron(new_set, eta, epochs,w):
+    for e in range(epochs):
+        new_set.x, new_set.y = shuffle_set(new_set.x, new_set.y)
+        for x, y in zip(new_set.x, new_set.y):
+            y_hat = np.argmax(np.dot(w, x))
+            if y_hat != y:
+                w[y] = np.add(w[y], np.dot(x, eta))
+                w[y_hat] = np.subtract(w[y_hat], np.dot(x, eta))
+    return w
 
-    def predict_svm(h, samples):
-        predictions = []
-        for i in range(657):
-            predictions.append(np.argmax(np.dot(h, samples[i])))
-        return np.asarray(predictions)
-
-    def build_perceptron(new_set, eta, epochs):
-        w = np.zeros((3, 10))
-        for e in range(epochs):
-            new_set.x, new_set.y = shuffle_set(new_set.x, new_set.y)
-            for x, y in zip(new_set.x, new_set.y):
-                y_hat = np.argmax(np.dot(w, x))
+def predict_perceptron(h, samples,eta, epochs):
+    labels = load_labels("new_test_y.txt")
+    sample_x, samples_y = shuffle_set(samples,labels)
+    for epoch in range(epochs):
+        count = 0
+        error = 0
+        for x, y in zip(sample_x, samples_y):
+            if count< 493:
+                y_hat = np.argmax(np.dot(h, x))
                 if y_hat != y:
-                    w[y] = np.add(w[y], np.dot(x, eta))
-                    w[y_hat] = np.subtract(w[y_hat], np.dot(x, eta))
+                    h[y] = np.add(h[y], np.dot(x, eta))
+                    h[y_hat] = np.subtract(h[y_hat], np.dot(x, eta))
 
-        return w
+            elif count>=493 and epoch==epochs-1:
+                d = np.argmax(np.dot(h, x))
+                if(d != samples_y[count]):
+                    error = error + 1
+            count = count + 1
+    return (error/(657-493))
+    #for i in range(657):
+        #predictions.append(np.argmax(np.dot(h, samples[i])))
+    #return np.asarray(predictions)
 
-    def predict_perceptron(h, samples):
-        predictions = []
-        for i in range(657):
-            predictions.append(np.argmax(np.dot(h, samples[i])))
-        return np.asarray(predictions)
+def calc_test(pred):
+    y = load_labels("new_test_y.txt")
 
-    def calc_test(pred):
-        y = load_labels("new_test_y.txt")
+    errors = 0
 
-        errors = 0
+    for i in range(len(pred)):
+        if y[i] != pred[i]:
+            errors += 1
 
-        for i in range(len(pred)):
-            if y[i] != pred[i]:
-                errors += 1
+    return (errors / 657) * 100
 
-        return (errors / 657) * 100
+def get_ts_and_test(x_file, y_file):
+    samples_file = open(x_file)
+    labels_file = open(y_file)
 
-    def get_ts_and_test(x_file, y_file):
-        samples_file = open(x_file)
-        labels_file = open(y_file)
+    all_samples = np.asarray([line.split() for line in samples_file])
+    all_labels = np.asarray([line.split() for line in labels_file])
 
-        all_samples = np.asarray([line.split() for line in samples_file])
-        all_labels = np.asarray([line.split() for line in labels_file])
+    mixed_samples, mixed_labels = shuffle_set(all_samples, all_labels)
 
-        mixed_samples, mixed_labels = shuffle_set(all_samples, all_labels)
+    test_x_file = open("new_test_x.txt", "w+")
+    test_y_file = open("new_test_y.txt", "w+")
+    last_index = int(len(mixed_samples) / 5)
 
-        test_x_file = open("new_test_x.txt", "w+")
-        test_y_file = open("new_test_y.txt", "w+")
-        last_index = int(len(mixed_samples) / 5)
+    for i in range(0, last_index):
+        s1= mixed_samples[i][0] + '\n'
+        s2 = mixed_labels[i][0] + '\n'
+        test_x_file.write(s1)
+        test_y_file.write(s2)
+    test_x_file.close()
+    test_y_file.close()
+    train_x_file = open("new_train_x.txt", "w+")
+    train_y_file = open("new_train_y.txt", "w+")
+    for i in range(last_index + 1, len(mixed_samples) - 1):
+        train_x_file.write(mixed_samples[i][0] + '\n')
+        train_y_file.write(mixed_labels[i][0] + '\n')
+    train_x_file.write(mixed_samples[len(mixed_samples) - 1][0])
+    train_y_file.write(mixed_labels[len(mixed_samples) - 1][0])
+    train_x_file.close()
+    train_y_file.close()
 
-        for i in range(0, last_index):
-            test_x_file.write(mixed_samples[i][0] + '\n')
-            test_y_file.write(mixed_labels[i][0] + '\n')
+class Result:
 
-        train_x_file = open("new_train_x.txt", "w+")
-        train_y_file = open("new_train_y.txt", "w+")
-        for i in range(last_index + 1, len(mixed_samples) - 1):
-            train_x_file.write(mixed_samples[i][0] + '\n')
-            train_y_file.write(mixed_labels[i][0] + '\n')
-        train_x_file.write(mixed_samples[len(mixed_samples) - 1][0])
-        train_y_file.write(mixed_labels[len(mixed_samples) - 1][0])
+    def __init__(self, eta, epochs, error):
+        self.eta = eta
+        self.epochs = epochs
+        self.error = error
 
-    class Result:
+def multi_run():
+    training_set = load_training_set("new_train_x.txt", "new_train_y.txt")
+    test_samples = load_test_samples("new_test_x.txt")
+    errors = []
+    for eta in range(1, 11):
+        eta = eta * 0.05
+        print("checking eta: " + str(eta))
+        for epochs in range(1, 5):
+            epochs = epochs * 25
+            error_avg = 0
+            for i in range(10):
+                perceptron_hypothesis = build_perceptron(training_set, eta,
+                                                         epochs)
+                perceptron_prediction = predict_perceptron(
+                    perceptron_hypothesis, test_samples)
+                error_avg += calc_test(perceptron_prediction)
+            errors.append(Result(eta, epochs, error_avg / 10))
 
-        def __init__(self, eta, epochs, error):
-            self.eta = eta
-            self.epochs = epochs
-            self.error = error
+    from operator import attrgetter
+    errors.sort(key=attrgetter('error'))
+    for i in range(10):
+        print(
+            "eta: " + str(errors[i].eta) + " epochs: " + str(
+                errors[i].epochs) + " error: " + str(errors[i].error))
 
-    def multi_run():
-        training_set = load_training_set("new_train_x.txt", "new_train_y.txt")
-        test_samples = load_test_samples("new_test_x.txt")
-        errors = []
-        for eta in range(1, 11):
-            eta = eta * 0.05
-            print("checking eta: " + str(eta))
-            for epochs in range(1, 5):
-                epochs = epochs * 25
-                error_avg = 0
-                for i in range(10):
-                    perceptron_hypothesis = build_perceptron(training_set, eta, epochs)
-                    perceptron_prediction = predict_perceptron(perceptron_hypothesis, test_samples)
-                    error_avg += calc_test(perceptron_prediction)
-                errors.append(Result(eta, epochs, error_avg / 10))
+def single_run():
+    training_set = load_training_set("new_train_x.txt", "new_train_y.txt")
 
-        from operator import attrgetter
-        errors.sort(key=attrgetter('error'))
-        for i in range(10):
-            print(
-                "eta: " + str(errors[i].eta) + " epochs: " + str(errors[i].epochs) + " error: " + str(errors[i].error))
-
-    def single_run():
-        training_set = load_training_set("new_train_x.txt", "new_train_y.txt")
-
-        test_samples = load_test_samples("new_test_x.txt")
-
+    test_samples = load_test_samples("new_test_x.txt")
+    eta = 0.075
+    error_avg = 0
+    epochs = 50
+    for j in range(10):
+        for i in range(5):
+            perceptron_hypothesis = np.zeros((3, 10))
+            #print("iteration: " + str(i))
+            build_perceptron(training_set, eta, epochs, perceptron_hypothesis)
+            error_avg += predict_perceptron(perceptron_hypothesis,
+                                                       test_samples,eta,epochs)
+        print("perceptrone: " + str(error_avg / 5))
         error_avg = 0
-        for i in range(10):
-            print("iteration: " + str(i))
-            perceptron_hypothesis = build_perceptron(training_set, 0.65, 10)
-            perceptron_prediction = predict_perceptron(perceptron_hypothesis, test_samples)
-            error_avg += calc_test(perceptron_prediction)
-        print(error_avg / 10)
+        #error_avg += calc_test(perceptron_prediction)
 
-    if __name__ == '__main__':
-        # get_ts_and_test("train_x.txt", "train_y.txt")
-        single_run()
-        # multi_run()
+
+def single_svm():
+    training_set = load_training_set("new_train_x.txt", "new_train_y.txt")
+    test_samples = load_test_samples("new_test_x.txt")
+    eta = 0.05
+    error_avg = 0
+    epochs = 40
+    lambdA= 0.00005
+    for j in range(10):
+        for i in range(5):
+            svm_hypothesis = np.zeros((3, 10))
+            #print("iteration: " + str(i))
+            build_svm(training_set, eta, epochs,lambdA, svm_hypothesis)
+            error_avg+=predict_svm(svm_hypothesis, test_samples, eta, lambdA)
+        print("svm: " + str((error_avg / 5)))
+        error_avg = 0
+
+
+if __name__ == '__main__':
+    get_ts_and_test("train_x.txt", "train_y.txt")
+    single_run()
+    single_svm()
+    # multi_run()
