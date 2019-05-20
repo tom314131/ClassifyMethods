@@ -91,7 +91,9 @@ def normalize_samples(samples_to_normalize, mins=None, maxs=None):
 
 def load_labels(file_name):
     file = open(file_name)
-    return np.asarray([int(float(line.split()[0])) for line in file])
+    labels = np.asarray([int(float(line.split()[0])) for line in file])
+    file.close()
+    return labels
 
 
 def load_test_samples(samples_file_name, mins=None, maxs=None):
@@ -162,98 +164,30 @@ def predict_using_hypothesis(hypothesis, samples):
     return np.asarray(predictions)
 
 
-# test section
-
-def split_to_equal_arrays(data, parts_num):
-    size_of_each_array = len(data) / float(parts_num)
-    arrays = []
-    last = 0.0
-
-    while last < len(data):
-        arrays.append(data[int(last):int(last + size_of_each_array)])
-        last += size_of_each_array
-
-    return arrays
-
-
-def test_hypothesis_on_data(hypothesis, data):
-    errors = 0
-
-    for x, y in data:
-        y_hay = np.argmax(np.dot(hypothesis, x))
-        if y != y_hay:
-            errors += 1
-
-    return (errors / len(data)) * 100
-
-
-def cross_val_perceptron(arrays, eta, epoch, hypothesis):
-    k_parts = len(arrays)
-
-    error = 0
-    for i in range(k_parts):
-        for j in (value for value in range(k_parts) if value != i):
-            hypothesis = train_perceptron(arrays[j], eta, epoch, hypothesis)
-        error += test_hypothesis_on_data(hypothesis, arrays[i])
-
-    return error / k_parts
-
-
-def cross_val_svm(arrays, eta, epoch, hypothesis, gradient):
-    k_parts = len(arrays)
-
-    error = 0
-    for i in range(k_parts):
-        for j in (value for value in range(k_parts) if value != i):
-            hypothesis = train_svm(arrays[j], eta, epoch, hypothesis, gradient)
-        error += test_hypothesis_on_data(hypothesis, arrays[i])
-
-    return error / k_parts
-
-
-def get_tests_results(arrays, training_set, eta):
-    x_values = []
-    errors = []
-
-    for epoch in range(1, 23):
-        epoch *= 5
-        print(epoch, end=" ")
-        hypothesis = np.zeros((training_set.classes_number, training_set.features_number))
-        error = cross_val_svm(arrays, eta, epoch, hypothesis, 0.1)
-
-        x_values.append(epoch)
-        errors.append(error)
-
-    return x_values, errors
-
-
-def tests():
-    # load and divide data
-    training_set = load_training_set("train_x.txt", "train_y.txt")
-    arrays = split_to_equal_arrays(training_set.data, 5)
-
-    import matplotlib.pyplot as plt
-    import time
-    check_time = True
-    start = None
-
-    for eta in range(1, 10):
-        if check_time:
-            start = time.time()
-
-        eta /= 10
-        print("checking eta {}".format(eta), end=": doing epoch ")
-        p, e = get_tests_results(arrays, training_set, eta)
-        plt.plot(p, e, label="eta {}".format(eta))
-        if check_time:
-            end = time.time()
-            check_time = False
-            print()
-            print("each eta take {}".format(end - start), end="")
-        print()
-    plt.legend()
-    plt.show()
-
-
 if __name__ == '__main__':
-    tests()
+    import sys
+
+    args = sys.argv
+
+    # load files
+    training_set = load_training_set(args[1], args[2])
+    test_samples = load_test_samples(args[3], training_set.mins, training_set.maxs)
+
+    # get perceptrons answers
+    hypothesis = np.zeros((training_set.classes_number, training_set.features_number))
+    hypothesis = train_perceptron(training_set.data, 0.7, 44, hypothesis)
+    perceptron_results = predict_using_hypothesis(hypothesis, test_samples)
+
+    # get svm answers
+    hypothesis = np.zeros((training_set.classes_number, training_set.features_number))
+    hypothesis = train_svm(training_set.data, 0.7, 20, hypothesis, 0.00075)
+    svm_results = predict_using_hypothesis(hypothesis, test_samples)
+
+    # get pa answers
+    hypothesis = np.zeros((training_set.classes_number, training_set.features_number))
+    hypothesis = train_pa(training_set.data, 85, hypothesis)
+    pa_results = predict_using_hypothesis(hypothesis, test_samples)
+
+    # print answers
+    for i in range(len(test_samples)):
+        print("perceptron: {}, svm: {}, pa: {}".format(perceptron_results[i], svm_results[i], pa_results[i]))

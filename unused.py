@@ -115,3 +115,114 @@ def generate_ts_and_test_from_files(x_file, y_file):
         train_y_file.write(mixed_labels[i][0] + '\n')
     train_x_file.write(mixed_samples[len(mixed_samples) - 1][0])
     train_y_file.write(mixed_labels[len(mixed_samples) - 1][0])
+
+
+# test section
+
+def split_to_equal_arrays(data, parts_num):
+    size_of_each_array = len(data) / float(parts_num)
+    arrays = []
+    last = 0.0
+
+    while last < len(data):
+        arrays.append(data[int(last):int(last + size_of_each_array)])
+        last += size_of_each_array
+
+    return arrays
+
+
+def test_hypothesis_on_data(hypothesis, data):
+    errors = 0
+
+    for x, y in data:
+        y_hay = np.argmax(np.dot(hypothesis, x))
+        if y != y_hay:
+            errors += 1
+
+    return (errors / len(data)) * 100
+
+
+def cross_val_perceptron(arrays, eta, epoch, hypothesis):
+    k_parts = len(arrays)
+
+    error = 0
+    for i in range(k_parts):
+        for j in (value for value in range(k_parts) if value != i):
+            hypothesis = train_perceptron(arrays[j], eta, epoch, hypothesis)
+        error += test_hypothesis_on_data(hypothesis, arrays[i])
+
+    return error / k_parts
+
+
+def cross_val_svm(arrays, eta, epoch, hypothesis, gradient):
+    k_parts = len(arrays)
+
+    error = 0
+    for i in range(k_parts):
+        for j in (value for value in range(k_parts) if value != i):
+            hypothesis = train_svm(arrays[j], eta, epoch, hypothesis, gradient)
+        error += test_hypothesis_on_data(hypothesis, arrays[i])
+
+    return error / k_parts
+
+
+def cross_val_pa(arrays, epoch, hypothesis):
+    k_parts = len(arrays)
+
+    error = 0
+    for i in range(k_parts):
+        for j in (value for value in range(k_parts) if value != i):
+            hypothesis = train_pa(arrays[j], epoch, hypothesis)
+        error += test_hypothesis_on_data(hypothesis, arrays[i])
+
+    return error / k_parts
+
+
+def get_tests_results(arrays, training_set):
+    x_values = []
+    errors = []
+
+    for run_value in range(1, 21):
+        run_value = (5 * run_value)
+        print(run_value, end=" ")
+        hypothesis = np.zeros((training_set.classes_number, training_set.features_number))
+        error = cross_val_pa(arrays, run_value, hypothesis)
+
+        x_values.append(run_value)
+        errors.append(error)
+
+    return x_values, errors
+
+
+def tests():
+    # load and divide data
+    random.seed(30)
+    training_set = load_training_set("train_x.txt", "train_y.txt")
+    arrays = split_to_equal_arrays(training_set.data, 5)
+    hypothesis = np.zeros((training_set.classes_number, training_set.features_number))
+
+    print(cross_val_pa(arrays, 75, hypothesis))
+
+    # import matplotlib.pyplot as plt
+    # import time
+    # check_time = True
+    # start = None
+    #
+    # for eta in range(1, 10):
+    #     if check_time:
+    #         start = time.time()
+    #
+    #     eta /= 10
+    #     print("checking eta {}".format(eta), end=": doing epoch ")
+    # p, e = get_tests_results(arrays, training_set)
+    # plt.plot(p, e, label="eta {}".format(eta))
+    # plt.plot(p, e)
+    # if check_time:
+    #     end = time.time()
+    #     check_time = False
+    #     print()
+    #     print("each eta take {}".format(end - start), end="")
+    # print()
+
+    # plt.legend()
+    # plt.show()
